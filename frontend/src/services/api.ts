@@ -194,4 +194,19 @@ export const api = {
     // 4. Session teardown
     await this.deleteSession(session_id);
   },
+
+  // Agent Tracking APIs
+  async getAgentsStatus(): Promise<{ running: string[]; idle: string[]; completed: string[] }> {
+    return request<{ running: string[]; idle: string[]; completed: string[] }>("/agents/status");
+  },
+
+  // Analytics APIs
+  async getAnalyticsLeaderboards(): Promise<{
+    top_sessions: { name: string; score: number }[];
+    top_agents: { name: string; score: number }[];
+    cache_efficiency_leaderboard: { name: string; score: number }[];
+    token_savings_leaderboard: { name: string; score: number }[];
+  }> {
+    return request<any>("/analytics/leaderboards");
+  },
 };

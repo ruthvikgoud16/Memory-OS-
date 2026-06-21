@@ -3,30 +3,43 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from valkey_client.client import valkey
+
+# Import existing routers
 from api.session import router as session_router
 from api.memory import router as memory_router
 from api.event import router as event_router
 from api.metrics import router as metrics_router
 
+# Import new Phase 2.0 routers
+from api.semantic_cache import router as cache_router
+from api.timeline import router as timeline_router
+from api.pubsub import router as pubsub_router
+from api.agent import router as agent_router
+from api.analytics import router as analytics_router
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: connect to Valkey
     valkey.connect()
-    # Ping to verify
     try:
         valkey.ping()
         print("Successfully connected to Valkey!")
     except Exception as e:
         print(f"Failed to connect to Valkey on startup: {e}")
     yield
-    # Shutdown: disconnect Valkey
+    # Shutdown: clean up background listener and disconnect Valkey
+    try:
+        from services.pubsub import PubSubService
+        PubSubService.unsubscribe_all()
+    except Exception:
+        pass
     valkey.disconnect()
     print("Valkey connection closed.")
 
 app = FastAPI(
     title="MemoryOS",
     description="Distributed Memory Infrastructure for AI Agents powered by Valkey",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -42,8 +55,6 @@ app.add_middleware(
 # Custom Telemetry Middleware to track request counts and latencies
 @app.middleware("http")
 async def telemetry_middleware(request: Request, call_next):
-    # Increment total request count
-    # Note: We wrap in try-except to prevent Valkey failures from breaking API completely
     try:
         valkey.hincrby("memoryos:metrics:global", "request_count", 1)
     except Exception as e:
@@ -66,6 +77,13 @@ app.include_router(session_router)
 app.include_router(memory_router)
 app.include_router(event_router)
 app.include_router(metrics_router)
+
+# Include new Phase 2.0 routers
+app.include_router(cache_router)
+app.include_router(timeline_router)
+app.include_router(pubsub_router)
+app.include_router(agent_router)
+app.include_router(analytics_router)
 
 @app.get("/")
 def read_root():

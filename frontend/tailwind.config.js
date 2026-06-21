@@ -7,11 +7,29 @@ export default {
   theme: {
     extend: {
       colors: {
-        darkBg: "#0B0E14",
-        cardBg: "rgba(22, 28, 38, 0.7)",
-        primary: "#14b8a6", // Teal
-        secondary: "#a855f7", // Purple
-        accent: "#3b82f6", // Blue
+        darkBg: "#050505",
+        surface1: "#111111",
+        surface2: "#1A1A1A",
+        primary: "#10B981", // Emerald
+        secondary: "#8B5CF6", // Purple
+        tertiary: "#06B6D4", // Cyan
+      },
+      animation: {
+        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'float-slow': 'float 25s ease-in-out infinite',
+        'float-medium': 'float-reverse 30s ease-in-out infinite',
+      },
+      keyframes: {
+        float: {
+          '0%, 100%': { transform: 'translate(0px, 0px) scale(1)' },
+          '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+          '66%': { transform: 'translate(-20px, 20px) scale(0.95)' },
+        },
+        'float-reverse': {
+          '0%, 100%': { transform: 'translate(0px, 0px) scale(1)' },
+          '33%': { transform: 'translate(-40px, 40px) scale(0.95)' },
+          '66%': { transform: 'translate(30px, -30px) scale(1.1)' },
+        }
       }
     },
   },

@@ -1,17 +1,13 @@
 import React from "react";
 import type { Session, TimelineEvent, MetricsData } from "../types";
 import { MetricCard } from "../components/MetricCard";
+import { AgentCard } from "../components/AgentCard";
+import { TimelineCard } from "../components/TimelineCard";
+import { LatencyChart, CachePerformanceChart } from "../components/Charts";
 import {
-  FolderOpen,
-  Activity,
-  Send,
-  Target,
-  AlertCircle,
-  PiggyBank,
-  Clock,
-  Terminal,
-  User,
-  ExternalLink
+  FolderOpen, Activity, Send, Target,
+  PiggyBank, Clock, Terminal,
+  Cpu, Play, ChevronRight
 } from "lucide-react";
 
 interface DashboardProps {
@@ -20,6 +16,7 @@ interface DashboardProps {
   recentEvents: TimelineEvent[];
   onSelectSession: (id: string) => void;
   setActiveTab: (tab: string) => void;
+  history?: any[];
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -27,73 +24,114 @@ export const Dashboard: React.FC<DashboardProps> = ({
   activeSessions,
   recentEvents,
   onSelectSession,
-  setActiveTab
+  setActiveTab,
+  history = []
 }) => {
   const global = metrics?.global;
 
-  const cards = [
-    {
-      title: "Total Sessions",
-      value: global?.total_sessions_created ?? 0,
-      icon: FolderOpen,
-      subtext: "Sessions recorded in database",
-      color: "accent" as const,
-    },
+  const topMetricCards = [
     {
       title: "Active Sessions",
       value: metrics?.active_sessions_count ?? 0,
       icon: Activity,
-      subtext: "Agents currently processing tasks",
+      subtext: "Orchestration runs active",
       color: "primary" as const,
     },
     {
-      title: "Total Requests",
-      value: global?.request_count ?? 0,
+      title: "Valkey Writes",
+      value: global?.total_memory_writes ?? 0,
       icon: Send,
-      subtext: "API hits to FastAPI backend",
-      color: "primary" as const,
+      subtext: "Context commits saved",
+      color: "accent" as const,
     },
     {
-      title: "Cache Hits",
-      value: global?.cache_hits ?? 0,
+      title: "Cache Efficiency",
+      value: global ? `${Math.round((global.cache_hits / Math.max(1, global.cache_hits + global.cache_misses)) * 100)}%` : "0%",
       icon: Target,
-      subtext: "Agent memory lookups succeeded",
+      subtext: "Success rate of queries",
       color: "primary" as const,
     },
     {
-      title: "Cache Misses",
-      value: global?.cache_misses ?? 0,
-      icon: AlertCircle,
-      subtext: "Cache misses recorded",
-      color: "red" as const,
-    },
-    {
-      title: "Tokens Saved",
+      title: "LLM Tokens Bypassed",
       value: global?.tokens_saved ?? 0,
       icon: PiggyBank,
-      subtext: "LLM contextual tokens bypassed",
-      color: "secondary" as const,
-    },
-    {
-      title: "Average Latency",
-      value: `${global?.latency ?? 0} ms`,
-      icon: Clock,
-      subtext: "Rolling average response speed",
+      subtext: "Context window saved",
       color: "secondary" as const,
     },
   ];
 
+  // Map active agent execution status
+  const agents: {
+    name: string;
+    status: "idle" | "running" | "completed";
+    invocations: number;
+    errors: number;
+    role: string;
+  }[] = [
+    {
+      name: "ResearchAgent",
+      status: metrics?.agents?.["ResearchAgent"]?.invocations ? "completed" as const : "idle" as const,
+      invocations: metrics?.agents?.["ResearchAgent"]?.invocations ?? 0,
+      errors: metrics?.agents?.["ResearchAgent"]?.errors ?? 0,
+      role: "Knowledge Miner"
+    },
+    {
+      name: "WriterAgent",
+      status: metrics?.agents?.["WriterAgent"]?.invocations ? "completed" as const : "idle" as const,
+      invocations: metrics?.agents?.["WriterAgent"]?.invocations ?? 0,
+      errors: metrics?.agents?.["WriterAgent"]?.errors ?? 0,
+      role: "Draft Constructor"
+    },
+    {
+      name: "ReviewerAgent",
+      status: metrics?.agents?.["ReviewerAgent"]?.invocations ? "completed" as const : "idle" as const,
+      invocations: metrics?.agents?.["ReviewerAgent"]?.invocations ?? 0,
+      errors: metrics?.agents?.["ReviewerAgent"]?.errors ?? 0,
+      role: "Decision Evaluator"
+    }
+  ];
+
+  // If there's an active session, mark running status dynamically for demonstration
+  if (activeSessions.length > 0) {
+    const latestEvent = recentEvents[0];
+    if (latestEvent) {
+      const activeName = latestEvent.agent_name;
+      const isComplete = latestEvent.event_type === "completion";
+      agents.forEach(a => {
+        if (a.name === activeName) {
+          a.status = isComplete ? "completed" : "running";
+        }
+      });
+    }
+  }
+
+  // Generate fallback visual history if empty
+  const chartData = history.length > 0 ? history : [
+    { time: "10:00", latency: 0.15, hits: 10, misses: 0, tokens: 20 },
+    { time: "10:05", latency: 0.22, hits: 15, misses: 1, tokens: 40 },
+    { time: "10:10", latency: 0.18, hits: 24, misses: 0, tokens: 80 }
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Title section */}
-      <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">System Dashboard</h2>
-        <p className="text-sm text-slate-400">Real-time system telemetry and multi-agent coordination status.</p>
+      {/* Title Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Valkey Orchestration Console</h2>
+          <p className="text-sm text-slate-400 font-medium">Real-time cache utilization, latencies, and agent communication trace routing.</p>
+        </div>
+        <button
+          onClick={() => setActiveTab("sessions")}
+          className="flex items-center space-x-1.5 rounded-xl bg-gradient-to-r from-primary to-secondary px-4 py-2.5 text-xs font-bold text-white shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.3)] transition-all cursor-pointer"
+        >
+          <Play className="h-3.5 w-3.5 fill-white" />
+          <span>Trigger New Session</span>
+        </button>
       </div>
 
-      {/* Grid of cards */}
+      {/* Stats Cards grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((card, idx) => (
+        {topMetricCards.map((card, idx) => (
           <MetricCard
             key={idx}
             title={card.title}
@@ -105,45 +143,95 @@ export const Dashboard: React.FC<DashboardProps> = ({
         ))}
       </div>
 
-      {/* Grid: Active Sessions and Timeline */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Active Sessions list */}
-        <div className="lg:col-span-4 glass-panel rounded-xl p-5 border border-slate-700/40 flex flex-col h-[400px]">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+      {/* Analytics Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8 glass-panel rounded-2xl p-5 border border-white/5">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
             <h3 className="font-bold text-white flex items-center space-x-2">
-              <Activity className="h-4.5 w-4.5 text-primary animate-pulse" />
-              <span>Active Sessions</span>
+              <Clock className="h-4.5 w-4.5 text-primary" />
+              <span>Orchestration Latency Stream</span>
+            </h3>
+            <span className="text-[10px] text-slate-500 font-mono font-bold">AVG WRITE SPEED</span>
+          </div>
+          <div className="pt-4">
+            <LatencyChart data={chartData} />
+          </div>
+        </div>
+
+        <div className="lg:col-span-4 glass-panel rounded-2xl p-5 border border-white/5">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <h3 className="font-bold text-white flex items-center space-x-2">
+              <Target className="h-4.5 w-4.5 text-secondary" />
+              <span>Cache Ratio Efficiency</span>
+            </h3>
+            <span className="text-[10px] text-slate-500 font-mono font-bold">HITS VS MISSES</span>
+          </div>
+          <div className="pt-4">
+            <CachePerformanceChart data={chartData} />
+          </div>
+        </div>
+      </div>
+
+      {/* Active Agents Grid */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+          <h3 className="font-bold text-white flex items-center space-x-2">
+            <Cpu className="h-4.5 w-4.5 text-tertiary" />
+            <span>Active Coordinating Agents</span>
+          </h3>
+          <span className="text-[10px] text-slate-500 font-mono">STATUS TELEMETRY</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {agents.map((agent, idx) => (
+            <AgentCard
+              key={idx}
+              agentName={agent.name}
+              status={agent.status}
+              invocations={agent.invocations}
+              errors={agent.errors}
+              description={agent.role}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Double Column: Recent Sessions Table and Timeline Activity Feed */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Recent Sessions list */}
+        <div className="lg:col-span-4 glass-panel rounded-2xl p-5 border border-white/5 flex flex-col h-[380px]">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
+            <h3 className="font-bold text-white flex items-center space-x-2">
+              <FolderOpen className="h-4.5 w-4.5 text-primary animate-pulse" />
+              <span>Orchestrated Runs</span>
             </h3>
             <button
               onClick={() => setActiveTab("sessions")}
               className="text-xs text-primary hover:underline font-semibold bg-transparent border-0 cursor-pointer"
             >
-              Manage all
+              Configure
             </button>
           </div>
 
           <div className="mt-4 flex-1 overflow-y-auto space-y-3 pr-1">
             {activeSessions.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center text-slate-500 text-sm py-10">
-                <FolderOpen className="h-10 w-10 text-slate-600 mb-2" />
-                <span>No active agent runs</span>
-                <p className="text-xs text-slate-600 text-center mt-1">Start a run on the Sessions page</p>
+              <div className="flex h-full flex-col items-center justify-center text-slate-500 text-xs py-10 space-y-2">
+                <FolderOpen className="h-8 w-8 text-slate-700" />
+                <span>No active orchestration logs</span>
+                <p className="text-[10px] text-slate-600 text-center">Start a demo or new run session</p>
               </div>
             ) : (
               activeSessions.map((session) => (
                 <div
                   key={session.id}
-                  onClick={() => {
-                    onSelectSession(session.id);
-                    setActiveTab("sessions");
-                  }}
-                  className="p-3 rounded-lg bg-slate-800/30 hover:bg-slate-800/60 border border-slate-700/30 hover:border-slate-600/50 cursor-pointer transition-all flex items-center justify-between"
+                  onClick={() => onSelectSession(session.id)}
+                  className="p-3.5 rounded-xl bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-white/10 cursor-pointer transition-all flex items-center justify-between group"
                 >
                   <div className="min-w-0">
-                    <h4 className="text-sm font-bold text-slate-200 truncate">{session.name}</h4>
-                    <span className="text-[10px] text-slate-500 font-mono block truncate">{session.id}</span>
+                    <h4 className="text-sm font-bold text-slate-200 truncate group-hover:text-white">{session.name}</h4>
+                    <span className="text-[9px] text-slate-500 font-mono block truncate mt-0.5">{session.id}</span>
                   </div>
-                  <ExternalLink className="h-4 w-4 text-slate-500 flex-shrink-0 ml-2" />
+                  <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-white transition-all transform group-hover:translate-x-0.5 ml-2 flex-shrink-0" />
                 </div>
               ))
             )}
@@ -151,46 +239,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Global Timeline Feed */}
-        <div className="lg:col-span-8 glass-panel rounded-xl p-5 border border-slate-700/40 flex flex-col h-[400px]">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="lg:col-span-8 glass-panel rounded-2xl p-5 border border-white/5 flex flex-col h-[380px]">
+          <div className="flex items-center justify-between border-b border-white/5 pb-3">
             <h3 className="font-bold text-white flex items-center space-x-2">
               <Terminal className="h-4.5 w-4.5 text-secondary" />
-              <span>Live Global Timeline</span>
+              <span>Real-Time Stream Feed</span>
             </h3>
-            <span className="text-[10px] uppercase font-mono tracking-widest text-slate-500 animate-pulse">Streaming</span>
+            <span className="text-[9px] uppercase font-mono tracking-widest text-primary animate-pulse font-bold">Valkey Stream</span>
           </div>
 
-          <div className="mt-4 flex-1 overflow-y-auto space-y-4 pr-1">
+          <div className="mt-4 flex-1 overflow-y-auto space-y-2 pr-1">
             {recentEvents.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center text-slate-500 text-sm py-10">
-                <MilestonePlaceholder />
+              <div className="flex h-full flex-col items-center justify-center text-slate-500 text-xs py-10 space-y-1">
+                <Terminal className="h-8 w-8 text-slate-700" />
+                <span>Waiting for telemetry events...</span>
               </div>
             ) : (
               recentEvents.map((evt) => (
-                <div key={evt.event_id} className="relative pl-6 border-l border-slate-800 pb-2 last:pb-0">
-                  {/* Timeline point */}
-                  <span className="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full bg-slate-800 border border-secondary" />
-                  
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs font-bold text-white flex items-center space-x-1">
-                          <User className="h-3 w-3 text-secondary" />
-                          <span>{evt.agent_name}</span>
-                        </span>
-                        <span className="text-[10px] rounded bg-slate-800 px-1.5 py-0.5 text-slate-400 font-medium font-mono uppercase">
-                          {evt.event_type}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-slate-300">
-                        {evt.payload.status || JSON.stringify(evt.payload)}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      {new Date(evt.timestamp * 1000).toLocaleTimeString()}
-                    </span>
-                  </div>
-                </div>
+                <TimelineCard
+                  key={evt.event_id}
+                  timestamp={evt.timestamp}
+                  agentName={evt.agent_name}
+                  eventType={evt.event_type}
+                  payload={evt.payload}
+                />
               ))
             )}
           </div>
@@ -199,11 +271,3 @@ export const Dashboard: React.FC<DashboardProps> = ({
     </div>
   );
 };
-
-const MilestonePlaceholder = () => (
-  <div className="flex flex-col items-center justify-center text-slate-500 text-sm">
-    <Terminal className="h-10 w-10 text-slate-600 mb-2" />
-    <span>No execution logs recorded</span>
-    <p className="text-xs text-slate-600 mt-1">Start a session to stream events</p>
-  </div>
-);

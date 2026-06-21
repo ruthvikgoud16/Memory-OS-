@@ -17,3 +17,10 @@ def get_memory(
     tag: Optional[str] = Query(None, description="Tag filter (shared memory only)")
 ):
     return MemoryService.get_memory(scope=scope, session_id=session_id, key=key, tag=tag)
+
+@router.get("/search")
+def search_memories(
+    query: str = Query(..., description="Query string for semantic similarity search"),
+    threshold: float = Query(0.5, description="Cosine similarity score cutoff")
+):
+    return MemoryService.vector_search(query=query, threshold=threshold)
